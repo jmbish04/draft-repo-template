@@ -1,0 +1,182 @@
+{
+  "name": "jules-mcp",
+  "main": "src/worker.ts",
+  "compatibility_date": "2025-12-19",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": true,
+  "preview_urls": true,
+  "observability": {
+    "enabled": true
+  },
+  "upload_source_maps": true,
+  "assets": {
+    "directory": "./frontend/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "ai": {
+    "binding": "AI",
+    "remote": true
+  },
+  "vars": {
+    // "AUTH_DISABLED": "false" -- set in secret .dev.vars
+    "AI_GATEWAY_NAME": "jules-mcp",
+    "GEMINI_MODEL": "gemini-2.5-pro",
+    "OPENAI_MODEL": "gpt-4o-mini-high",
+    "VECTOR_INDEX": "jules-mcp"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "jules-mcp",
+      "database_id": "c9537508-3089-4ce7-862c-0984963d7b7b",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "497786d92c2e4e75bb519fc26c7f35de",
+      "remote": true
+    }
+  ],
+  "r2_buckets": [
+    {
+      "bucket_name": "jules-mcp",
+      "binding": "BUCKET",
+      "remote": true
+    }
+  ],
+  "vectorize": [
+    {
+      "binding": "JULES_MCP_VECTORIZE",
+      "index_name": "jules-mcp",
+      "remote": true
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "QUEUE_INGEST",
+        "queue": "jules-mcp-ingest"
+      },
+      {
+        "binding": "QUEUE_WEBHOOK",
+        "queue": "jules-mcp-webhook"
+      },
+      {
+        "binding": "QUEUE_ADVISOR",
+        "queue": "jules-mcp-advisor"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "jules-mcp-ingest",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5
+      },
+      {
+        "queue": "jules-mcp-webhook",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5
+      },
+      {
+        "queue": "jules-mcp-advisor",
+        "max_batch_size": 1,
+        "max_batch_timeout": 30
+      }
+    ]
+  },
+  "workflows": [
+    {
+      "binding": "ADVISOR_WORKFLOW",
+      "name": "advisor-workflow",
+      "class_name": "AdvisorWorkflow"
+    },
+    {
+      "binding": "INGEST_WORKFLOW",
+      "name": "ingest-workflow",
+      "class_name": "IngestWorkflow"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "EXPERT_AGENT",
+        "class_name": "ExpertAgent"
+      },
+      {
+        "name": "JUDGE_AGENT",
+        "class_name": "JudgeAgent"
+      },
+      {
+        "name": "SANDBOX",
+        "class_name": "Sandbox"
+      },
+      {
+        "name": "OVERSEER_AGENT",
+        "class_name": "OverseerAgent"
+      },
+      {
+        "name": "ORCHESTRATOR_AGENT",
+        "class_name": "OrchestratorAgent"
+      },
+      {
+        "name": "QA_AGENT",
+        "class_name": "QAAgent"
+      },
+      {
+        "name": "ARCHITECT_AGENT",
+        "class_name": "ArchitectAgent"
+      },
+      {
+        "name": "VERIFICATION_AGENT",
+        "class_name": "VerificationAgent"
+      },
+      {
+        "name": "DASHBOARD_AGENT",
+        "class_name": "DashboardAgent"
+      },
+      {
+        "name": "SENTINEL_AGENT",
+        "class_name": "SentinelAgent"
+      }
+    ]
+  },
+  "triggers": {
+    "crons": [
+      "*/5 * * * *",
+      "*/15 * * * *",
+      "0 * * * *"
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "ExpertAgent",
+        "JudgeAgent",
+        "Sandbox",
+        "OverseerAgent",
+        "OrchestratorAgent",
+        "QAAgent",
+        "ArchitectAgent",
+        "VerificationAgent"
+      ]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": [
+        "DashboardAgent"
+      ]
+    },
+    {
+      "tag": "v3",
+      "new_sqlite_classes": [
+        "SentinelAgent"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.dev.vars
+.wrangler/
+*.log
+.DS_Store
+.plan_quick.md
+example.md
+plan_quick.md
+/src/generated/prisma

@@ -1,0 +1,53 @@
+# Jules MCP Server - Local Development Variables
+
+# Required: Your Jules API key from Google AI Studio
+# Get your key at: https://aistudio.google.com/apikey
+JULES_API_KEY="enter jules_api_key here"
+
+# Optional: Authentication token for MCP endpoint
+# Generate with: openssl rand -hex 32
+# If not set, authentication is effectively disabled
+MCP_AUTH_TOKEN="enter mcp_auth_token here"
+
+# Optional: Disable authentication (not recommended for production)
+# Set to "true" to disable auth (default: "false")
+AUTH_DISABLED="enter auth_disabled here"
+
+
+# --- Cloudflare / Platform ---
+CLOUDFLARE_ACCOUNT_ID="enter cloudflare_account_id here"
+
+# Token used by Cloudflare AI Gateway
+CF_AIG_TOKEN="enter cf_aig_token here"
+
+# Token for Cloudflare Browser Rendering API
+CF_BROWSER_RENDER_TOKEN="enter cf_browser_render_token here"
+
+# AI Search plus -- Workers AI, Gateway, and R2
+CLOUDFLARE_AI_SEARCH_TOKEN="enter cloudflare_ai_search_token here"
+
+# Manage Workers
+CLOUDFLARE_WORKER_ADMIN_TOKEN="enter cloudflare_worker_admin_token here"
+
+# Observability - Account Analytics, Zone Analytics, Workers Tail
+CLOUDFLARE_OBSERVABILITY_TOKEN="enter cloudflare_observability_token here"
+
+
+
+# --- R2 Storage Secrets (Passed to Python Container) ---
+R2_ACCESS_KEY_ID="enter r2_access_key_id here"
+R2_SECRET_ACCESS_KEY="enter r2_secret_access_key here"
+R2_ENDPOINT_URL="enter r2_endpoint_url here"
+R2_BUCKET_NAME="enter r2_bucket_name here"
+CLOUFLARE_R2_TOKEN="enter clouflare_r2_token here"
+
+# --- AI Providers ---
+# Google Gemini API key
+GEMINI_API_KEY="enter gemini_api_key here"
+
+# OpenAI API key (if used in parallel or fallback)
+OPENAI_API_KEY="enter openai_api_key here"
+
+# --- GitHub ---
+# Used for GitHub API access (repos, PRs, issues, etc.)
+GITHUB_TOKEN="enter github_token here"

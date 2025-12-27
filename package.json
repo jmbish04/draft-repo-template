@@ -1,0 +1,86 @@
+{
+  "name": "jules-mcp",
+  "version": "0.3.0",
+  "type": "module",
+  "description": "Cloudflare Workers MCP server connecting AI assistants to the Jules API for autonomous coding sessions",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "mcp",
+    "jules",
+    "ai",
+    "coding-assistant",
+    "model-context-protocol",
+    "cursor",
+    "claude"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jmbish04/jules-mcp.git"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.1.0"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "bun run build:frontend && bun run build:worker",
+    "build:frontend": "cd frontend && bun run build",
+    "build:worker": "tsc -p tsconfig.json",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "db:create-migration": "wrangler d1 migrations create DB",
+    "db:types": "wrangler types",
+    "deploy": "bun run prisma:generate && bun run db:migrate:remote && bun run build && wrangler deploy",
+    "deploy:tail": "bun run deploy && bun run tail",
+    "tail": "node scripts/wrangler-logs/tail-logs.js",
+    "cf-typegen": "wrangler types",
+    "lint": "eslint src",
+    "generate:example-vars": "node scripts/generate-example-vars.js"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^2.0.56",
+    "@ai-sdk/google": "^2.0.51",
+    "@ai-sdk/openai": "^2.0.88",
+    "@ai-sdk/react": "^2.0.118",
+    "@cloudflare/agents": "^0.0.16",
+    "@cloudflare/puppeteer": "^1.0.4",
+    "@cloudflare/sandbox": "^0.6.7",
+    "@google/genai": "^1.34.0",
+    "@hono/zod-openapi": "^1.2.0",
+    "@libsql/client": "^0.15.15",
+    "@modelcontextprotocol/sdk": "^1.25.1",
+    "@octokit/graphql": "^9.0.3",
+    "@octokit/plugin-retry": "^8.0.3",
+    "@octokit/plugin-throttling": "^11.0.3",
+    "@octokit/rest": "^22.0.1",
+    "@prisma/adapter-d1": "^7.2.0",
+    "@prisma/adapter-libsql": "^7.2.0",
+    "@prisma/client": "latest",
+    "ai": "^5.0.116",
+    "hono": "^4.11.1",
+    "openai": "^6.15.0",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.0.3",
+    "@types/react": "^18.3.27",
+    "@types/react-dom": "^18.3.7",
+    "eslint": "^9.39.2",
+    "globals": "^16.5.0",
+    "prisma": "latest",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.50.0",
+    "vite": "latest",
+    "wrangler": "^4.56.0"
+  }
+}
