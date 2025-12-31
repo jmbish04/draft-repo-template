@@ -5,14 +5,15 @@ import { BrowserService } from "./tools/cloudflare-mcp/browser-render/index.js";
 // @ts-ignore
 import { getSandbox } from "@cloudflare/sandbox";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { JulesClient, JulesActivityService } from "./tools/jules";
-import { ArchitectAgent } from "./agents/team/architect.js";
-import { OverseerAgent } from "./agents/team/overseer.js";
-import { QAAgent } from "./agents/team/qa.js";
 import { JulesMonitorService } from "./services/jules-monitor";
 import app from "./server.js";
 import { HealthCheckers } from "./tools/health";
 import { Env } from "./types";
+import { OverseerAgent } from "./agents/team/overseer.js";
+import { ArchitectAgent } from "./agents/team/architect.js";
+import { DashboardAgent } from "./agents/core/dashboard.js";
+import { OrchestratorAgent } from "./agents/team/orchestrator.js";
+import { SentinelAgent } from "./agents/team/sentinel.js";
 
 // Initialize the MCP Transport (Global state for worker lifetime)
 const transport = new WebStandardStreamableHTTPServerTransport({
@@ -184,13 +185,6 @@ export default {
               const res = await checker.check(env);
               const latency = Date.now() - start;
 
-              // Handle both single result and array of results (some checkers return HealthResult, some might wrap)
-              // The types say checkHealth returns Promise<HealthResult> but let's be safe.
-              // Actually types.ts says HealthResult, but some implementations might check multiple things? 
-              // Looking at health.ts, `check` returns `Promise<HealthResult>`.
-              // But wait, the previous code was `Promise<HealthResult[]>`.
-              // Ah, `Promise.all` returns array of results. Each `check` returns `HealthResult`.
-
               // @ts-ignore
               let status = res.status || (res.success ? "OK" : "FAILURE"); // Adapt to potential result variance
 
@@ -227,7 +221,6 @@ export default {
       });
     }
 
-
     // Dashboard Data API
     if (url.pathname === "/api/dashboard/activity") {
       const db = getDb(env);
@@ -249,43 +242,15 @@ export default {
       return stub.fetch(request);
     }
 
-
-
     // --- Multi-Agent Orchestration ---
     // Route: /api/orchestrator/new-project
     if (url.pathname === "/api/orchestrator/new-project" && request.method === "POST") {
-      const body = await request.json() as { prompt: string };
-      const id = env.EXPERT_AGENT.idFromName("architect"); // Using existing binding, aliased conceptually
-      const stub = env.EXPERT_AGENT.get(id);
-      // We might need to implement a 'exec' method on the stub or pass via fetch
-      // For now, assuming standard DO fetch pattern if we migrated agents to DOs, 
-      // OR simply running the class logic directly if they are stateless logic.
-      // The Prompt implies "Agents" as classes. Let's instantiate directly for now to keep it simple,
-      // or route if they are strict DOs. 
-      // Given existing code used 'get(id).fetch', let's stick to simple direct execution for this refactor 
-      // unless strictly bound.
-      // The user prompt asked to "Refactor... into specialized agents".
-      // Let's treat them as logic classes invoked here for simplicity, OR use DOs if we must persistence.
-      // We'll run them ephemeral for "Architect" (stateless task) and "QA".
-      // "Overseer" definitely needs DO or Cron.
-
-      const architect = new ArchitectAgent(env, {} as any); // State mock
-      // We need a fake connection for 'onMessage' or a direct method.
-      // Let's call the logic directly.
-      await architect.onMessage({ send: () => { } }, body.prompt);
-      return Response.json({ status: "Architect started" });
-    }
-
-    // Route: /api/orchestrator/qa
-    if (url.pathname === "/api/orchestrator/qa" && request.method === "POST") {
-      const body = await request.json() as { repoName: string, sessionId: string };
-      const qa = new QAAgent(env, {} as any);
-      ctx.waitUntil(qa.review(body.repoName, body.sessionId));
-      return Response.json({ status: "QA started background" });
+      const id = env.ORCHESTRATOR_AGENT.idFromName("orchestrator");
+      const stub = env.ORCHESTRATOR_AGENT.get(id);
+      return stub.fetch(request);
     }
 
     // --- Chat API ---
-    // Route: /api/agent/message
     // Route: /api/agent/message
     if (url.pathname === "/api/agent/message" && request.method === "POST") {
       // Determine which agent to talk to based on header
@@ -321,48 +286,17 @@ export default {
       }
     }
 
-    // Cloudflare Webhook Events
-    if (url.pathname === "/webhooks/cloudflare-events" && request.method === "POST") {
-      try {
-        const event = await request.json();
-        console.log("webhook event received:", JSON.stringify(event, null, 2));
-        return Response.json({ success: true });
-      } catch (e: any) {
-        console.error("Webhook Error:", e);
-        return Response.json({ success: false, error: e.message }, { status: 400 });
-      }
-    }
-
     // Sentinel API
     if (url.pathname === "/api/sentinel/check-pr" && request.method === "POST") {
-      const body = await request.json();
       const id = env.SENTINEL_AGENT.idFromName("sentinel-global");
       const stub = env.SENTINEL_AGENT.get(id);
-
-      // Transform to BaseCoreAgent task format
-      const taskRequest = new Request("http://sentinel/task", {
-        method: "POST",
-        body: JSON.stringify({
-          type: "check_pr",
-          payload: body
-        })
-      });
-      return await stub.fetch(taskRequest);
+      return stub.fetch(request);
     }
 
     if (url.pathname === "/api/sentinel/scan-repo" && request.method === "POST") {
-      const body = await request.json();
       const id = env.SENTINEL_AGENT.idFromName("sentinel-global");
       const stub = env.SENTINEL_AGENT.get(id);
-
-      const taskRequest = new Request("http://sentinel/task", {
-        method: "POST",
-        body: JSON.stringify({
-          type: "scan_repo",
-          payload: body // { owner, repo }
-        })
-      });
-      return await stub.fetch(taskRequest);
+      return stub.fetch(request);
     }
 
     // Agent Routing -> Hono Middleware
@@ -396,11 +330,11 @@ export default {
 
 // Exports for Durable Objects (Maintaining references for bindings)
 export { ExpertAgent } from "./agents/team/expert.js";
-export { ArchitectAgent } from "./agents/team/architect.js";
 export { OverseerAgent } from "./agents/team/overseer.js";
-export { QAAgent } from "./agents/team/qa.js";
-export { JudgeAgent } from "./agents/team/judge";
-export { OrchestratorAgent } from "./agents/team/orchestrator";
+export { ArchitectAgent } from "./agents/team/architect.js";
+export { DashboardAgent } from "./agents/core/dashboard.js";
+export { OrchestratorAgent } from "./agents/team/orchestrator.js";
+export { SentinelAgent } from "./agents/team/sentinel.js";
 // @ts-ignore
 export { Sandbox } from "@cloudflare/sandbox";
 export { JulesService } from "./rpc/jules-service";
@@ -408,6 +342,3 @@ export { JulesService } from "./rpc/jules-service";
 // Exports for Workflows
 export { AdvisorWorkflow, IngestWorkflow } from "./workflows/stubs";
 export { VerificationAgent } from "./agents/workflow/verification";
-export { DashboardAgent } from "./agents/core/dashboard";
-export { SentinelAgent } from "./agents/team/sentinel";
-
