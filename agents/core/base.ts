@@ -55,13 +55,11 @@ export type {
     AgentState,
     LogOptions,
     SearchRequest,
-    SodaDatasetKey,
     VisionInput
 };
 
 // Import shared utilities to expose on BaseAgent
     import { getSandbox } from "@cloudflare/sandbox";
-    import type { SodaDatasetKey } from "../tools";
     import * as tools from "../tools";
 
 export abstract class BaseAgent<
@@ -72,13 +70,6 @@ export abstract class BaseAgent<
 
   // -- Shared Utilities (Exposed for Subclasses) --
   protected getSandbox = getSandbox;
-  protected SocrataClient = tools.socrata.SocrataClient;
-  protected SocrataDatasets = tools.socrata.DATASETS;
-  protected escapeSoql = tools.socrata.escapeSoql;
-  protected soqlLikeAny = tools.socrata.soqlLikeAny;
-  protected withinCircle = tools.socrata.withinCircle;
-  protected generateContractorWildcards = tools.dbi.generateContractorWildcards;
-  protected safeSocrataJson = tools.socrata.safeSocrataJson;
   protected cleanAiJsonOutput = cleanAiJsonOutput;
   protected sanitizeAndFormatAiResponse = sanitizeAndFormatAiResponse;
 
@@ -103,10 +94,6 @@ When asked to analyze data or perform logic better suited for Python, PREFER usi
 
   protected async runNotebook(notebookPath: string) {
     return new this.RunNotebookTool(this.env).execute({ notebookPath });
-  }
-
-  protected async classifyIntent(env: Env, query: string) {
-    return tools.dbi.classifyIntent(env, query);
   }
 
   // -- LOGGING (Prisma) --
@@ -153,6 +140,7 @@ When asked to analyze data or perform logic better suited for Python, PREFER usi
     } catch (e) {
       // Fallback to console if DB fails - critical not to crash the agent just because logging failed
       console.error(`[${this.agentName}] Logging Failed:`, e);
+      console.log(`[${this.agentName}] [${role}]: ${content.slice(0, 100)}...`);
     }
   }
 
@@ -612,242 +600,7 @@ When asked to analyze data or perform logic better suited for Python, PREFER usi
       toolMap[tool.name] = tool.toAiTool(this.logEvent.bind(this));
     }
 
-    // Inline Tools (Legacy or Specific to BaseAgent not yet refactored to classes)
-    // Leaving inline tools here if not moving them to separate files yet,
-    // to maintain functionality of vector_search etc.
-    // *However* the previous ReplaceFileContent call REMOVED the inline tools!
-    // So I must restore them OR assume I should move them.
-    // Given complexity, I will restore them here.
-
-    const coreTools = {
-      ...toolMap,
-      vector_search: {
-        description:
-          "Search the forensic knowledge base or regulatory docs using Hybrid Search.",
-        parameters: convertHonoZodToAiJsonSchema(
-          z.object({
-            query: z.string().describe("The search query string."),
-            limit: z
-              .number()
-              .optional()
-              .default(5)
-              .describe("Number of results to return."),
-            index: z
-              .enum(["forensic", "regulation"])
-              .optional()
-              .default("forensic")
-              .describe("The vector index to search."),
-          }),
-        ),
-        execute: async (args: {
-          query: string;
-          limit?: number;
-          index?: "forensic" | "regulation";
-        }) => {
-          return this.traceTool("vector_search", args, async () => {
-            const { query, limit = 5, index = "forensic" } = args;
-            // const searcher = new SearchService(this.env);
-            const results: any[] = []; // searcher removed
-            // const results = await searcher.search(query, limit, { index });
-            if (results.length === 0) return "No results found.";
-            return results
-              .map(
-                (r) =>
-                  `[ID: ${r.id}] (Score: ${(r.score || 0).toFixed(2)}) (Source: ${r.source})\n${r.content}`,
-              )
-              .join("\n---\n");
-          });
-        },
-      },
-      search_regulations: {
-        description:
-          "Search specific regulatory documents (SF DBI, CA REGS, etc.) for compliance verification.",
-        parameters: convertHonoZodToAiJsonSchema(
-          z.object({
-            query: z.string().describe("The regulatory query or keyword."),
-            limit: z
-              .number()
-              .optional()
-              .default(5)
-              .describe("Number of results to return."),
-          }),
-        ),
-        execute: async (args: { query: string; limit?: number }) => {
-          return this.traceTool("search_regulations", args, async () => {
-            const { query, limit = 5 } = args;
-            // const searcher = new SearchService(this.env);
-            const results: any[] = []; // searcher removed
-            // const results = await searcher.search(query, limit, { index: "regulation" });
-            if (results.length === 0)
-              return "No relevant regulatory matches found.";
-            return results
-              .map(
-                (r) =>
-                  `[REG-DOC: ${r.id}] (Score: ${(r.score || 0).toFixed(2)})\n${r.content}`,
-              )
-              .join("\n---\n");
-          });
-        },
-      },
-      saveForensicContext: {
-        description:
-          "Save forensic analysis context or results to the database.",
-        parameters: convertHonoZodToAiJsonSchema(
-          z.object({
-            messageId: z
-              .string()
-              .optional()
-              .describe("The ID of the message being analyzed."),
-            data: z.any().describe("The analysis data to save (JSON object)."),
-          }),
-        ),
-        execute: async (args: { messageId?: string; data: any }) => {
-          return this.traceTool("saveForensicContext", args, async () => {
-            const { messageId, data } = args;
-            if (messageId) {
-              // const adapter = new PrismaD1(this.env.DB);
-              // const prisma = new PrismaClient({ adapter });
-              /*
-                            await prisma.message.update({
-                                where: { messageId },
-                                data: {
-                                    // @ts-ignore - forensicAnalysisJson missing from Message schema
-                                    forensicAnalysisJson: JSON.stringify(data),
-                                    status: "PROCESSED"
-                                }
-                            });
-                            */
-              return "Saved analysis to Message metadata.";
-            }
-            return "No messageId provided. Context not saved to Message.";
-          });
-        },
-      },
-      getEngagementContext: {
-        description:
-          "Fetch relevant context for the current engagement (messages, facts, analysis).",
-        parameters: convertHonoZodToAiJsonSchema(
-          z.object({
-            engagementId: z
-              .string()
-              .describe("The engagement ID to fetch context for."),
-            limit: z
-              .number()
-              .optional()
-              .default(20)
-              .describe("Number of recent messages to fetch."),
-          }),
-        ),
-        execute: async (args: { engagementId: string; limit?: number }) => {
-          return this.traceTool("getEngagementContext", args, async () => {
-            const { engagementId, limit = 20 } = args;
-            // const adapter = new PrismaD1(this.env.DB);
-            // const prisma = new PrismaClient({ adapter });
-
-            const facts: any[] = [];
-            /*
-                        const facts = await prisma.engagementFact.findMany({
-                            where: { engagement_id: engagementId },
-                            take: 20
-                        });
-                        */
-
-            const messages: any[] = [];
-            /*
-                        const messages = await prisma.message.findMany({
-                            where: { engagementId },
-                            orderBy: { sentDate: 'desc' },
-                            take: limit
-                        });
-                        */
-
-            const analysis: any[] = [];
-            /*
-                        const analysis = await prisma.timelineAnalysis.findMany({
-                            where: { engagementId },
-                            orderBy: { createdAt: 'desc' },
-                            take: 5
-                        });
-                        */
-            return {
-              facts: facts.map((f: any) => ({
-                type: f.type,
-                title: f.title,
-                content: f.content,
-              })),
-              messages: messages.map((m: any) => ({
-                date: m.sentDate,
-                from: m.fromAddress,
-                subject: m.subject,
-                snippet: m.bodyPlain
-                  ? m.bodyPlain.substring(0, 200)
-                  : "No content",
-              })),
-              analysis: analysis.map((a: any) => ({
-                summary: a.summary,
-                risks: a.potentialRisks,
-              })),
-            };
-          });
-        },
-      },
-      updateKnowledge: {
-        description:
-          "Update the engagement's knowledge base with a new fact or truth.",
-        parameters: convertHonoZodToAiJsonSchema(
-          z.object({
-            engagementId: z.string().describe("The engagement ID."),
-            type: z
-              .enum(["CONTEXT", "TRUTH", "EVIDENCE"])
-              .describe("The type of fact."),
-            content: z.string().describe("The content of the fact."),
-            title: z
-              .string()
-              .optional()
-              .describe("Short title/handle for the fact."),
-            confidence: z
-              .number()
-              .optional()
-              .default(1.0)
-              .describe("Confidence score (0.0-1.0)."),
-          }),
-        ),
-        execute: async (args: {
-          engagementId: string;
-          type: "CONTEXT" | "TRUTH" | "EVIDENCE";
-          content: string;
-          title?: string;
-          confidence?: number;
-        }) => {
-          return this.traceTool("updateKnowledge", args, async () => {
-            const {
-              engagementId,
-              type,
-              content,
-              title,
-              confidence = 1.0,
-            } = args;
-            // const adapter = new PrismaD1(this.env.DB);
-            // const prisma = new PrismaClient({ adapter });
-
-            /*
-                        await prisma.engagementFact.create({
-                            data: {
-                                engagement_id: engagementId,
-                                type,
-                                title,
-                                content,
-                                confidence
-                            }
-                        });
-                        */
-            return "Fact added to Knowledge Base.";
-          });
-        },
-      },
-    };
-
-    return coreTools;
+    return toolMap;
   }
 
   /**
@@ -895,19 +648,6 @@ When asked to analyze data or perform logic better suited for Python, PREFER usi
       }
     } catch (e) {
       results.browser = { status: "FAILURE", error: String(e) };
-    }
-
-    // 4. SODA (SF Data) Check
-    try {
-      if ((this.env as any).SODA_APP_TOKEN) {
-        // We perform a Lightweight token check or just existence check
-        // Real ping would be `new SodaService(this.env).getPermitsByLicense('...test...')` but might be expensive/slow
-        results.soda = { status: "OK", method: "TOKEN_CHECK" };
-      } else {
-        results.soda = { status: "SKIPPED", message: "No Token" };
-      }
-    } catch (e) {
-      results.soda = { status: "FAILURE", error: String(e) };
     }
 
     return {
