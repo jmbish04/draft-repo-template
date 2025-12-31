@@ -29,7 +29,7 @@ export class OverseerAgent extends BaseAgent<Env, OverseerState> {
 
     // Check for "stuck" state
     const lastActivity = activity.activities[activity.activities.length - 1];
-    if (lastActivity?.agentMessaged?.agentMessage.includes("error") || lastActivity?.agentMessaged?.agentMessage.includes("stuck")) {
+    if (lastActivity?.agentMessaged?.agentMessage && (/�(error|stuck)�/i.test(lastActivity.agentMessaged.agentMessage))) {
       const query = `How to fix error in Jules session: ${lastActivity.agentMessaged.agentMessage}`;
       const searchResults = await this.tools.cloudflareDocs.execute({ query });
       const solution = searchResults[0]?.content;
